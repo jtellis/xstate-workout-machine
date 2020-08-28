@@ -1,4 +1,4 @@
-import { createMachine, assign, send, interpret } from 'xstate';
+import { createMachine, assign, send, sendParent, interpret } from 'xstate';
 
     /*
         https://xstate.js.org/docs/tutorials/7guis/timer.html#modeling
@@ -25,7 +25,10 @@ let intervalMachine = createMachine(
                 },
                 on: {
                     TICK: {
-                        actions: 'incrementElapsed'
+                        actions: [
+                            sendParent('INTERVAL_TICK'),
+                            'incrementElapsed'
+                        ]
                     },
                     PAUSE: 'paused'
                 }
@@ -66,7 +69,9 @@ let intervalsMachine = createMachine(
         initial: 'ready',
         context: {
             intervals: [{name: 'Int 1', duration: 3}, {name: 'Int 2', duration: 5}],
-            intervalCursor: 0
+            intervalCursor: 0,
+            elapsed: 0,
+            timerInterval: 1
         },
         states: {
             ready: {
@@ -76,9 +81,10 @@ let intervalsMachine = createMachine(
             },
             running: {
                 invoke: {
+                    id: 'intervalMachine',
                     src: intervalMachine,
                     data: {
-                        interval: 1,
+                        interval: ctx => ctx.timerInterval,
                         elapsed: 0,
                         duration: ctx => ctx.intervals[ctx.intervalCursor].duration
                     },
@@ -90,6 +96,11 @@ let intervalsMachine = createMachine(
                 always: {
                     target: 'complete',
                     cond: 'allIntervalsComplete'
+                },
+                on: {
+                    INTERVAL_TICK: {
+                        actions: 'incrementElapsed'
+                    }
                 }
             },
             paused: {},
@@ -100,6 +111,9 @@ let intervalsMachine = createMachine(
         actions: {
             updateCurrentInterval: assign({
                 intervalCursor: ctx => ctx.intervalCursor + 1
+            }),
+            incrementElapsed: assign({
+                elapsed: ctx => ctx.elapsed + ctx.timerInterval
             })
         },
         guards: {
@@ -111,9 +125,9 @@ let intervalsMachine = createMachine(
     }
 );
 
-let intervalsService = interpret(intervalsMachine).onTransition(state =>
-    console.log(state.value)
-  );
+let intervalsService = interpret(intervalsMachine).onTransition(state => {
+    console.log(state.context.elapsed);
+});
   
 intervalsService.start();
 

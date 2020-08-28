@@ -44,14 +44,14 @@ let intervalMachine = createMachine(
     { /* config */
         actions: {
             incrementElapsed: assign({
-                elapsed: context => context.elapsed + context.interval
+                elapsed: cxt => cxt.elapsed + cxt.interval
             })
         },
         guards: {
-            intervalComplete: context => context.elapsed === context.duration
+            intervalComplete: cxt => cxt.elapsed === cxt.duration
         },
         services: {
-            timer: context => sendBack => {
+            timer: () => sendBack => {
                 let interval = setInterval(() => {
                     sendBack('TICK');
                 }, 1000);
